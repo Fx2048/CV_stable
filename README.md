@@ -101,6 +101,9 @@ Con estos pasos, habrás personalizado tu modelo de Stable Diffusion usando Drea
 
 
 ______________________________________
+
+
+# 2 
 Para el entrenamiento con Dreambooth en Stable Diffusion, necesitas dos conjuntos de imágenes:
 
 1. **Training Images (Imágenes de entrenamiento):**
