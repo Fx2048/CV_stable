@@ -98,3 +98,57 @@ Durante el entrenamiento, el modelo guardará puntos de control en dos momentos:
 * Si usas un identificador muy común (como `man` o `woman`), puede ser útil encontrar imágenes diversas de estas clases para mejorar la regularización.
 
 Con estos pasos, habrás personalizado tu modelo de Stable Diffusion usando Dreambooth para generar imágenes ajustadas a tus necesidades.
+
+
+______________________________________
+Para el entrenamiento con Dreambooth en Stable Diffusion, necesitas dos conjuntos de imágenes:
+
+1. **Training Images (Imágenes de entrenamiento):**
+   Este conjunto debe contener las imágenes de tu clase personalizada (el objeto o tema que estás entrenando). Por ejemplo, si estás entrenando un modelo para generar imágenes de un tipo específico de perro, necesitarás un conjunto de imágenes de perros en diferentes posiciones, contextos, ángulos, etc. Cuantas más imágenes puedas proporcionar, mejor será la personalización del modelo.
+
+2. **Regularization Images (Imágenes de regularización):**
+   Las imágenes de regularización son usadas para entrenar el modelo a generar imágenes de tu clase personalizada. Este conjunto de imágenes es diferente de las imágenes de entrenamiento, ya que son utilizadas para ayudar al modelo a aprender características generales de la clase (por ejemplo, una imagen genérica de un perro).
+
+### **Pasos para preparar estas imágenes:**
+
+#### 1. **Training Images (Imágenes de Entrenamiento)**
+
+Estas imágenes son las que realmente quieres que el modelo aprenda a generar. Deben ser imágenes que representen de forma precisa lo que deseas entrenar.
+
+* **Recopilación:** Si estás creando una clase como "perro", puedes tomar fotos de perros desde diferentes ángulos, posiciones y ambientes.
+* **Tamaño:** Es recomendable que las imágenes tengan una resolución moderada (como 512x512 píxeles) para mantener la eficiencia durante el entrenamiento.
+* **Diversidad:** Asegúrate de incluir imágenes que cubran diferentes variantes del objeto que estás entrenando (en este caso, diferentes razas, colores, tamaños de perros, etc.).
+
+**¿Dónde obtener estas imágenes?**
+
+* Si no tienes fotos propias, puedes buscar imágenes libres de derechos de autor en sitios web como:
+
+  * **Unsplash**
+  * **Pexels**
+  * **Pixabay**
+  * **Flickr (asegurándote de usar solo imágenes con licencia Creative Commons)**
+
+#### 2. **Regularization Images (Imágenes de Regularización)**
+
+Las imágenes de regularización se usan para que el modelo tenga una base general de la clase de objeto que estás entrenando. Para el caso de un perro, necesitarías imágenes genéricas de perros que ayuden al modelo a aprender la clase "perro" a un nivel más abstracto.
+
+**Generación de imágenes para regularización:**
+
+* Puedes generar estas imágenes utilizando un modelo pre-entrenado de Stable Diffusion. Por ejemplo, si deseas regularizar la clase "perro", puedes usar el siguiente comando para generar imágenes a partir de un prompt:
+
+  ```bash
+  python scripts/stable_txt2img.py --ddim_eta 0.0 --n_samples 8 --n_iter 1 --scale 10.0 --ddim_steps 50 --ckpt /path/to/sd-v1-4-full-ema.ckpt --prompt "a photo of a dog"
+  ```
+
+  Este comando generará 8 imágenes de perros (que puedes usar como imágenes de regularización), pero puedes generar más para mejorar el proceso de regularización. La cantidad de imágenes de regularización depende de qué tan fuerte desees que el modelo se adhiera a esa clase, aunque 100 o 200 imágenes de regularización suelen ser más efectivas.
+
+* **¿Dónde obtener imágenes si no las puedes generar?**
+  Si las imágenes generadas no son suficientemente realistas o variadas, puedes buscar imágenes en línea de la clase que estás entrenando (por ejemplo, fotos de perros) y utilizarlas como imágenes de regularización.
+
+### **Resumiendo:**
+
+* **Training Images**: Son las imágenes que quieres que el modelo aprenda a generar. Deben ser de la clase que deseas personalizar.
+* **Regularization Images**: Son imágenes generales de la clase que ayudan a que el modelo aprenda mejor sobre la clase de objeto. Puedes generarlas usando un modelo pre-entrenado de Stable Diffusion o descargarlas de fuentes libres como Unsplash.
+
+Una vez que tengas ambas carpetas listas, las puedes utilizar en el comando de entrenamiento de Dreambooth. ¡Espero que esto aclare tus dudas!
+
