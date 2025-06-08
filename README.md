@@ -1,55 +1,100 @@
 # CV_stable
+¡Claro! Para implementar Dreambooth sobre Stable Diffusion, sigue este tutorial paso a paso. Dreambooth permite la personalización de un modelo de generación de imágenes, con solo unos pocos ejemplos de lo que deseas entrenar.
 
-Dreambooth on Stable Diffusion
-This is an implementtaion of Google's Dreambooth with Stable Diffusion. The original Dreambooth is based on Imagen text-to-image model. However, neither the model nor the pre-trained weights of Imagen is available. To enable people to fine-tune a text-to-image model with a few examples, I implemented the idea of Dreambooth on Stable diffusion.
+### **Pasos a seguir:**
 
-This code repository is based on that of Textual Inversion. Note that Textual Inversion only optimizes word ebedding, while dreambooth fine-tunes the whole diffusion model.
+#### 1. **Configuración del entorno**
 
-The implementation makes minimum changes over the official codebase of Textual Inversion. In fact, due to lazyness, some components in Textual Inversion, such as the embedding manager, are not deleted, although they will never be used here.
+* **Instalar el entorno de `Textual Inversion`**: Primero, asegúrate de tener configurado el entorno adecuado para ejecutar el modelo. Si ya tienes instalado el entorno para `Textual Inversion`, puedes seguir este paso; de lo contrario, sigue las instrucciones del repositorio de **Textual Inversion** o **Stable Diffusion** para configurarlo.
 
-Update
-9/20/2022: I just found a way to reduce the GPU memory a bit. Remember that this code is based on Textual Inversion, and TI's code base has this line, which disable gradient checkpointing in a hard-code way. This is because in TI, the Unet is not optimized. However, in Dreambooth we optimize the Unet, so we can turn on the gradient checkpoint pointing trick, as in the original SD repo here. The gradient checkpoint is default to be True in config. I have updated the codes.
+* **Instalar dependencias**: Si estás utilizando `Textual Inversion`, probablemente necesitarás las dependencias de **PyTorch**, **CUDA**, y bibliotecas de difusión como `diffusers`.
 
-Usage
-Preparation
-First set-up the ldm enviroment following the instruction from textual inversion repo, or the original Stable Diffusion repo.
+```bash
+pip install torch torchvision torchaudio
+pip install transformers
+```
 
-To fine-tune a stable diffusion model, you need to obtain the pre-trained stable diffusion models following their instructions. Weights can be downloaded on HuggingFace. You can decide which version of checkpoint to use, but I use sd-v1-4-full-ema.ckpt.
+#### 2. **Descargar el modelo pre-entrenado de Stable Diffusion**
 
-We also need to create a set of images for regularization, as the fine-tuning algorithm of Dreambooth requires that. Details of the algorithm can be found in the paper. Note that in the original paper, the regularization images seem to be generated on-the-fly. However, here I generated a set of regularization images before the training. The text prompt for generating regularization images can be photo of a <class>, where <class> is a word that describes the class of your object, such as dog. The command is
+* Dirígete a **HuggingFace** y descarga el archivo `sd-v1-4-full-ema.ckpt`. Este es el modelo preentrenado que necesitarás para la fase de entrenamiento.
 
-python scripts/stable_txt2img.py --ddim_eta 0.0 --n_samples 8 --n_iter 1 --scale 10.0 --ddim_steps 50  --ckpt /path/to/original/stable-diffusion/sd-v1-4-full-ema.ckpt --prompt "a photo of a <class>" 
-I generate 8 images for regularization, but more regularization images may lead to stronger regularization and better editability. After that, save the generated images (separately, one image per .png file) at /root/to/regularization/images.
+```bash
+wget https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/sd-v1-4-full-ema.ckpt
+```
 
-Updates on 9/9 We should definitely use more images for regularization. Please try 100 or 200, to better align with the original paper. To acomodate this, I shorten the "repeat" of reg dataset in the config file.
+Guarda el archivo en una ubicación conveniente.
 
-For some cases, if the generated regularization images are highly unrealistic (happens when you want to generate "man" or "woman"), you can find a diverse set of images (of man/woman) online, and use them as regularization images.
+#### 3. **Generación de imágenes para regularización**
 
-Training
-Training can be done by running the following command
+* Para el algoritmo de Dreambooth, necesitas generar imágenes de regularización. Estas imágenes deben describir la clase de objeto que estás entrenando. Si estás entrenando para una clase como "perro", puedes usar el siguiente comando para generar imágenes.
 
-python main.py --base configs/stable-diffusion/v1-finetune_unfrozen.yaml 
-                -t 
-                --actual_resume /path/to/original/stable-diffusion/sd-v1-4-full-ema.ckpt  
-                -n <job name> 
-                --gpus 0, 
-                --data_root /root/to/training/images 
-                --reg_data_root /root/to/regularization/images 
-                --class_word <xxx>
-Detailed configuration can be found in configs/stable-diffusion/v1-finetune_unfrozen.yaml. In particular, the default learning rate is 1.0e-6 as I found the 1.0e-5 in the Dreambooth paper leads to poor editability. The parameter reg_weight corresponds to the weight of regularization in the Dreambooth paper, and the default is set to 1.0.
+```bash
+python scripts/stable_txt2img.py --ddim_eta 0.0 --n_samples 8 --n_iter 1 --scale 10.0 --ddim_steps 50  --ckpt /path/to/sd-v1-4-full-ema.ckpt --prompt "a photo of a dog"
+```
 
-Dreambooth requires a placeholder word [V], called identifier, as in the paper. This identifier needs to be a relatively rare tokens in the vocabulary. The original paper approaches this by using a rare word in T5-XXL tokenizer. For simplicity, here I just use a random word sks and hard coded it.. If you want to change that, simply make a change in this file.
+Este comando generará 8 imágenes de un perro, lo cual es suficiente, pero puedes generar más imágenes para mejorar la regularización, en especial si los objetos que deseas generar son complejos.
 
-Training will be run for 800 steps, and two checkpoints will be saved at ./logs/<job_name>/checkpoints, one at 500 steps and one at final step. Typically the one at 500 steps works well enough. I train the model use two A6000 GPUs and it takes ~15 mins.
+#### 4. **Entrenamiento del modelo**
 
-Generation
-After training, personalized samples can be obtained by running the command
+* Con las imágenes generadas y las imágenes de entrenamiento listas, es momento de entrenar el modelo. Usa el siguiente comando para comenzar el entrenamiento. Asegúrate de haber configurado correctamente el archivo `v1-finetune_unfrozen.yaml`.
 
-python scripts/stable_txt2img.py --ddim_eta 0.0 
-                                 --n_samples 8 
-                                 --n_iter 1 
-                                 --scale 10.0 
-                                 --ddim_steps 100  
-                                 --ckpt /path/to/saved/checkpoint/from/training
-                                 --prompt "photo of a sks <class>" 
-In particular, sks is the identifier, which should be replaced by your choice if you happen to change the identifier, and <class> is the class word --class_word for training.
+```bash
+python main.py --base configs/stable-diffusion/v1-finetune_unfrozen.yaml \
+               -t \
+               --actual_resume /path/to/sd-v1-4-full-ema.ckpt \
+               -n <nombre_del_trabajo> \
+               --gpus 0, \
+               --data_root /ruta/a/las/imagenes_de_entrenamiento \
+               --reg_data_root /ruta/a/las/imagenes_de_regularizacion \
+               --class_word perro
+```
+
+Aquí:
+
+* `<nombre_del_trabajo>` es el nombre que le des al trabajo de entrenamiento.
+* `--gpus 0,` indica que utilizarás la GPU 0. Si usas múltiples GPUs, ajusta esto.
+* `--data_root` debe ser la ruta a las imágenes de entrenamiento personalizadas.
+* `--reg_data_root` debe ser la ruta a las imágenes de regularización.
+* `--class_word` es la clase que estás entrenando (por ejemplo, "perro").
+
+**Configuración importante**:
+
+* En el archivo `v1-finetune_unfrozen.yaml`, el parámetro `learning rate` se ajusta a 1e-6.
+* El identificador especial se define como `sks` en este caso (puedes cambiarlo si lo prefieres).
+
+#### 5. **Generación de imágenes personalizadas**
+
+* Una vez que el modelo esté entrenado, puedes generar imágenes personalizadas usando el siguiente comando:
+
+```bash
+python scripts/stable_txt2img.py --ddim_eta 0.0 \
+                                 --n_samples 8 \
+                                 --n_iter 1 \
+                                 --scale 10.0 \
+                                 --ddim_steps 100 \
+                                 --ckpt /ruta/a/tu/modelo_entrenado.ckpt \
+                                 --prompt "photo of a sks dog"
+```
+
+Aquí, el `sks` es el identificador que se usó durante el entrenamiento. Si lo cambiaste, sustitúyelo por tu nuevo identificador.
+
+#### 6. **Monitoreo del proceso de entrenamiento**
+
+Durante el entrenamiento, el modelo guardará puntos de control en dos momentos: en el paso 500 y al final del entrenamiento. Los archivos se guardarán en la carpeta `./logs/<job_name>/checkpoints`. Puedes utilizar el checkpoint del paso 500 si deseas resultados más rápidos.
+
+```bash
+./logs/<job_name>/checkpoints/step_500.ckpt
+```
+
+**Tiempo de entrenamiento**:
+
+* El entrenamiento de 800 pasos toma alrededor de 15 minutos en GPUs de alto rendimiento como A6000.
+
+---
+
+### **Consejos adicionales**:
+
+* Si las imágenes generadas son de baja calidad o poco realistas, ajusta el número de imágenes de regularización, como se sugiere en el repositorio (100 o 200 imágenes pueden mejorar los resultados).
+* Si usas un identificador muy común (como `man` o `woman`), puede ser útil encontrar imágenes diversas de estas clases para mejorar la regularización.
+
+Con estos pasos, habrás personalizado tu modelo de Stable Diffusion usando Dreambooth para generar imágenes ajustadas a tus necesidades.
